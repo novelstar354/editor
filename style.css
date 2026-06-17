@@ -30,6 +30,8 @@ body{
         sans-serif;
     background:var(--bg);
     color:var(--text);
+    user-select: none;
+  -webkit-user-select: none;
 }
 
 /* =====================================================
