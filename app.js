@@ -1283,14 +1283,248 @@ document
         );
     }
 );
+/* =====================================================
+   RUN CURRENT FILE
+   ===================================================== */
+
 document
-.getElementById(
-    "runBtn"
-)
+.getElementById("runBtn")
 .addEventListener(
     "click",
-    runCurrentProject
+    runCurrentFile
 );
+
+function runCurrentFile(){
+
+    const file =
+    files.find(
+        f => f.id === activeFileId
+    );
+
+    if(!file){
+
+        alert("実行するファイルが開かれていません");
+
+        return;
+    }
+
+    const content =
+    file.model
+    ? file.model.getValue()
+    : file.content;
+
+    const ext =
+    file.name
+    .split(".")
+    .pop()
+    .toLowerCase();
+
+
+    /* =========================
+       HTML
+       ========================= */
+
+    if(ext === "html"){
+
+        const win =
+        window.open(
+            "",
+            "_blank"
+        );
+
+        if(!win){
+
+            alert(
+                "ポップアップがブロックされています。"
+            );
+
+            return;
+        }
+
+        win.document.open();
+
+        win.document.write(
+            content
+        );
+
+        win.document.close();
+
+        return;
+    }
+
+
+    /* =========================
+       JavaScript
+       ========================= */
+
+    if(ext === "js"){
+
+        const win =
+        window.open(
+            "",
+            "_blank"
+        );
+
+        if(!win){
+
+            alert(
+                "ポップアップがブロックされています。"
+            );
+
+            return;
+        }
+
+        win.document.open();
+
+        win.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${file.name}</title>
+</head>
+<body>
+
+<h3>JavaScript実行結果</h3>
+
+<script>
+try {
+
+${content}
+
+} catch(error) {
+
+    document.body.innerHTML +=
+        "<pre style='color:red'>" +
+        String(error) +
+        "</pre>";
+
+}
+<\/script>
+
+</body>
+</html>
+        `);
+
+        win.document.close();
+
+        return;
+    }
+
+
+    /* =========================
+       CSS
+       ========================= */
+
+    if(ext === "css"){
+
+        const win =
+        window.open(
+            "",
+            "_blank"
+        );
+
+        if(!win){
+
+            alert(
+                "ポップアップがブロックされています。"
+            );
+
+            return;
+        }
+
+        win.document.open();
+
+        win.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${file.name}</title>
+
+<style>
+${content}
+</style>
+
+</head>
+<body>
+
+<h2>CSS Preview</h2>
+
+<p>現在開いているCSSファイルを適用しています。</p>
+
+<div class="preview-box">
+    CSS Preview
+</div>
+
+</body>
+</html>
+        `);
+
+        win.document.close();
+
+        return;
+    }
+
+
+    /* =========================
+       その他
+       ========================= */
+
+    const win =
+    window.open(
+        "",
+        "_blank"
+    );
+
+    if(!win){
+
+        alert(
+            "ポップアップがブロックされています。"
+        );
+
+        return;
+    }
+
+    win.document.open();
+
+    win.document.write(`
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${file.name}</title>
+</head>
+
+<body>
+
+<pre style="
+white-space:pre-wrap;
+font-family:monospace;
+padding:20px;
+">${escapeHTML(content)}</pre>
+
+</body>
+</html>
+    `);
+
+    win.document.close();
+}
+
+
+/* =====================================================
+   HTML ESCAPE
+   ===================================================== */
+
+function escapeHTML(text){
+
+    return String(text)
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+}
 function runCurrentProject(){
 
     const html =
