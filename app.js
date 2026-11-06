@@ -1294,224 +1294,182 @@ document
     runCurrentFile
 );
 
-function runCurrentFile(){
 
-    const file =
-    files.find(
-        f => f.id === activeFileId
-    );
+function getCurrentProjectSource(){
+    const htmlFile = getFileByExt(".html");
+    const cssFile = getFileByExt(".css");
+    const jsFile = getFileByExt(".js");
 
-    if(!file){
+    const read = f => f ? (f.model ? f.model.getValue() : f.content) : "";
+    let html = read(htmlFile);
+    const css = read(cssFile);
+    const js = read(jsFile);
 
-        alert("実行するファイルが開かれていません");
+    if(!html){
+        html = "<main><h1>Star IDE</h1><p>HTMLファイルがありません。</p></main>";
+    }
 
+    // If the HTML is a complete document, add project CSS/JS to it.
+    if(/<html[\s>]/i.test(html)){
+        if(css){
+            const styleTag = `<style>\n${css}\n</style>`;
+            if(/<\/head>/i.test(html)) html = html.replace(/<\/head>/i, styleTag + "\n</head>");
+            else html = styleTag + html;
+        }
+        if(js){
+            const scriptTag = `<script>\n${js.replace(/<\/script/gi, "<\\/script")}\n<\/script>`;
+            if(/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, scriptTag + "\n</body>");
+            else html += scriptTag;
+        }
+        return html;
+    }
+
+    return `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>${css}</style>
+</head>
+<body>
+${html}
+<script>${js.replace(/<\/script/gi, "<\\/script")}<\/script>
+</body>
+</html>`;
+}
+
+function openPersistentRunner(source, title="Star IDE 実行結果"){
+    const runId = "run_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
+    const storeKey = "STAR_IDE_RUNS";
+    try{
+        const all = JSON.parse(localStorage.getItem(storeKey) || "{}");
+        all[runId] = { source, title, savedAt: Date.now() };
+        // Keep the latest 20 runs to avoid unbounded localStorage growth.
+        const entries = Object.entries(all).sort((a,b)=>(b[1].savedAt||0)-(a[1].savedAt||0)).slice(0,20);
+        localStorage.setItem(storeKey, JSON.stringify(Object.fromEntries(entries)));
+    }catch(err){
+        alert("実行データを保存できませんでした。ブラウザの保存容量を確認してください。");
+        console.error(err);
         return;
     }
 
-    const content =
-    file.model
-    ? file.model.getValue()
-    : file.content;
+    const runnerUrl = new URL("./runner.html", window.location.href);
+    runnerUrl.searchParams.set("run", runId);
+    const win = window.open(runnerUrl.href, "_blank");
+    if(!win){
+        alert("ポップアップがブロックされています。Star IDEのポップアップを許可してください。");
+    }
+}
 
-    const ext =
-    file.name
-    .split(".")
-    .pop()
-    .toLowerCase();
+function runCurrentFile(){
+    const file = files.find(f => f.id === activeFileId);
+    if(!file){
+        alert("実行するファイルが開かれていません");
+        return;
+    }
 
-
-    /* =========================
-       HTML
-       ========================= */
+    const ext = file.name.split(".").pop().toLowerCase();
+    let source;
 
     if(ext === "html"){
-
-        const win =
-        window.open(
-            "",
-            "_blank"
-        );
-
-        if(!win){
-
-            alert(
-                "ポップアップがブロックされています。"
-            );
-
-            return;
-        }
-
-        win.document.open();
-
-        win.document.write(
-            content
-        );
-
-        win.document.close();
-
-        return;
+        // Run the whole project when an HTML entry file exists, including sibling CSS/JS.
+        source = getCurrentProjectSource();
+    }else if(ext === "js"){
+        const js = file.model ? file.model.getValue() : file.content;
+        source = `<!doctype html><html lang="ja"><meta charset="UTF-8"><title>${escapeHTML(file.name)}</title><body><h3>JavaScript実行結果</h3><pre id="out"></pre><script>
+const out=document.getElementById("out");
+const oldLog=console.log;
+console.log=(...a)=>{out.textContent+=a.join(" ")+"\\n";oldLog(...a)};
+try{
+${js.replace(/<\/script/gi, "<\\/script")}
+}catch(error){out.textContent+="\\n"+String(error)}
+<\/script></body></html>`;
+    }else if(ext === "css"){
+        const css = file.model ? file.model.getValue() : file.content;
+        source = `<!doctype html><html lang="ja"><meta charset="UTF-8"><title>${escapeHTML(file.name)}</title><style>${css}</style><body><h2>CSS Preview</h2><div class="preview-box">CSS Preview</div></body></html>`;
+    }else{
+        const content = file.model ? file.model.getValue() : file.content;
+        source = `<!doctype html><html lang="ja"><meta charset="UTF-8"><title>${escapeHTML(file.name)}</title><body><pre style="white-space:pre-wrap;font-family:monospace;padding:20px">${escapeHTML(content)}</pre></body></html>`;
     }
-
-
-    /* =========================
-       JavaScript
-       ========================= */
-
-    if(ext === "js"){
-
-        const win =
-        window.open(
-            "",
-            "_blank"
-        );
-
-        if(!win){
-
-            alert(
-                "ポップアップがブロックされています。"
-            );
-
-            return;
-        }
-
-        win.document.open();
-
-        win.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>${file.name}</title>
-</head>
-<body>
-
-<h3>JavaScript実行結果</h3>
-
-<script>
-try {
-
-${content}
-
-} catch(error) {
-
-    document.body.innerHTML +=
-        "<pre style='color:red'>" +
-        String(error) +
-        "</pre>";
-
-}
-<\/script>
-
-</body>
-</html>
-        `);
-
-        win.document.close();
-
-        return;
-    }
-
-
-    /* =========================
-       CSS
-       ========================= */
-
-    if(ext === "css"){
-
-        const win =
-        window.open(
-            "",
-            "_blank"
-        );
-
-        if(!win){
-
-            alert(
-                "ポップアップがブロックされています。"
-            );
-
-            return;
-        }
-
-        win.document.open();
-
-        win.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>${file.name}</title>
-
-<style>
-${content}
-</style>
-
-</head>
-<body>
-
-<h2>CSS Preview</h2>
-
-<p>現在開いているCSSファイルを適用しています。</p>
-
-<div class="preview-box">
-    CSS Preview
-</div>
-
-</body>
-</html>
-        `);
-
-        win.document.close();
-
-        return;
-    }
-
-
-    /* =========================
-       その他
-       ========================= */
-
-    const win =
-    window.open(
-        "",
-        "_blank"
-    );
-
-    if(!win){
-
-        alert(
-            "ポップアップがブロックされています。"
-        );
-
-        return;
-    }
-
-    win.document.open();
-
-    win.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>${file.name}</title>
-</head>
-
-<body>
-
-<pre style="
-white-space:pre-wrap;
-font-family:monospace;
-padding:20px;
-">${escapeHTML(content)}</pre>
-
-</body>
-</html>
-    `);
-
-    win.document.close();
+    openPersistentRunner(source, file.name);
 }
 
+/* =====================================================
+   PUBLISH TO SUPABASE STORAGE
+   ===================================================== */
 
+const PUBLISH_CONFIG_KEY = "STAR_IDE_PUBLISH_CONFIG";
+
+function getPublishConfig(){
+    try{return JSON.parse(localStorage.getItem(PUBLISH_CONFIG_KEY) || "{}");}
+    catch(_){return {};}
+}
+
+async function publishCurrentProject(){
+    const htmlFile = getFileByExt(".html");
+    if(!htmlFile){
+        alert("公開するには、プロジェクトに .html ファイルが必要です。");
+        return;
+    }
+
+    let config = getPublishConfig();
+    let supabaseUrl = config.url || "";
+    let anonKey = config.anonKey || "";
+
+    if(!supabaseUrl || !anonKey){
+        supabaseUrl = prompt("Supabase Project URL を入力してください（例：https://xxxx.supabase.co）", supabaseUrl);
+        if(!supabaseUrl) return;
+        anonKey = prompt("Supabase anon / publishable key を入力してください", anonKey);
+        if(!anonKey) return;
+        supabaseUrl = supabaseUrl.trim().replace(/\/+$/,"");
+        anonKey = anonKey.trim();
+        if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(supabaseUrl)){
+            alert("Supabase Project URL の形式が正しくありません。");
+            return;
+        }
+        localStorage.setItem(PUBLISH_CONFIG_KEY, JSON.stringify({url:supabaseUrl, anonKey}));
+    }
+
+    const source = getCurrentProjectSource();
+    const publishId = "page-" + Date.now() + "-" + Math.random().toString(36).slice(2,8);
+    const objectPath = "published/" + publishId + ".html";
+    const endpoint = `${supabaseUrl}/storage/v1/object/star-ide-public/${objectPath}`;
+
+    const button = document.getElementById("publishBtn");
+    const oldLabel = button ? button.textContent : "";
+    if(button){button.disabled = true; button.textContent = "公開中...";}
+
+    try{
+        const response = await fetch(endpoint,{
+            method:"POST",
+            headers:{
+                "apikey":anonKey,
+                "Authorization":"Bearer " + anonKey,
+                "Content-Type":"text/html; charset=utf-8",
+                "x-upsert":"false"
+            },
+            body:source
+        });
+        const result = await response.json().catch(()=>({}));
+        if(!response.ok){
+            const message = result.message || result.error || response.statusText;
+            throw new Error(message + "（HTTP " + response.status + "）");
+        }
+
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/star-ide-public/${objectPath}`;
+        try{await navigator.clipboard.writeText(publicUrl);}
+        catch(_){}
+        alert("公開しました！\n\n公開URL:\n" + publicUrl + "\n\nURLをコピーできる場合はクリップボードにも保存しました。");
+        window.open(publicUrl, "_blank");
+    }catch(err){
+        console.error(err);
+        alert("公開に失敗しました。\n" + err.message + "\n\nSupabaseでバケットとStorageポリシーを作成したか確認してください。");
+    }finally{
+        if(button){button.disabled = false; button.textContent = oldLabel || "公開";}
+    }
+}
+
+document.getElementById("publishBtn")?.addEventListener("click", publishCurrentProject);
 /* =====================================================
    HTML ESCAPE
    ===================================================== */
