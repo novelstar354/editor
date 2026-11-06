@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Star IDE Runner</title>
+<style>
+html,body{margin:0;min-height:100%;background:#fff;color:#222;font-family:system-ui,sans-serif}
+#runnerError{padding:24px;font-family:system-ui,sans-serif}
+</style>
+</head>
+<body>
+<div id="runnerError" hidden></div>
+<script>
+(function(){
+  const id = new URLSearchParams(location.search).get("run");
+  const error = document.getElementById("runnerError");
+  try{
+    const all = JSON.parse(localStorage.getItem("STAR_IDE_RUNS") || "{}");
+    const item = all[id];
+    if(!item || typeof item.source !== "string"){
+      error.hidden = false;
+      error.textContent = "実行データが見つかりません。Star IDEからもう一度実行してください。";
+      return;
+    }
+    document.title = item.title || "Star IDE 実行結果";
+    document.open();
+    document.write(item.source);
+    document.close();
+  }catch(e){
+    error.hidden = false;
+    error.textContent = "実行データを読み込めませんでした: " + String(e);
+  }
+})();
+</script>
+</body>
+</html>
