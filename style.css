@@ -518,3 +518,11 @@ body.light{
 .hidden{
     display:none;
 }
+
+/* PUBLISH */
+#publishBtn{
+    border:1px solid #2f8fda !important;
+    background:#075a9c !important;
+}
+#publishBtn:hover{background:#0876c9 !important;}
+#publishBtn:disabled{opacity:.6;cursor:wait;}
